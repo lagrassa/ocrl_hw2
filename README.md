@@ -103,11 +103,12 @@ Please submit the writeup and code via Gradescope.
 
 Good Luck!
 
+### Run instructions from Alex
+In addition to running the launch file given by the instructors, also launch `tem.launch` in the launch/ directory (not sure if it will work outside). That will start the library and map server and such. The TEB planner published to `/cmd_vel` but that gets automatically converted into an Ackermann command, which should be run by the robot.
 
-
-
-
-
-
-
+The code that runs the planner and updates it with the appropriate waypoint is in `scripts/trajopt.py`. 
+TODOS
+1. adjust the resolution of map.yaml to our actual environment
+1. Make sure the parameters in /cfg are consistent with our car
+1. test the planner
 

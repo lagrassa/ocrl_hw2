@@ -1,0 +1,79 @@
+<h2 id="alert-latest-stable-update-mar-9th-1130pm">ALERT: Latest stable update @ Mar 9th 11:30pm</h2>
+<p>Direct all the issues to Piazza. Before you raise an issue, <strong>make sure you cloned/forked after the latest stable update.</strong></p>
+<h1 id="optimal-control-and-reinformcement-learning-homework-2">16-745 Optimal Control and Reinformcement Learning : Homework 2</h1>
+<h2 id="due-march-27th">Due: March 27th</h2>
+<p>The goal of the assignment is to generate a local policy that drives an Ackermann system to a sequence of waypoints <code>(x, y, theta)</code> in the shortest time possible while respecting the dynamics (non-holonomic) and control saturation (velocity, acceleration and steering angle limits). The homework is open-ended and there is no restriction on the type of Optimal Control/RL/Planning/Learning methods you can use to achieve this task.</p>
+<h2 id="software">Software</h2>
+<p>This homework requrires setting up Robot Operating System (ROS) and Gazebo environments.</p>
+<h3 id="requriements">Requriements</h3>
+<ul>
+<li>Ubuntu 14.04 or later</li>
+<li>ROS Indigo or later</li>
+<li>Gazebo 7 or later</li>
+</ul>
+<h3 id="setting-up-the-workspace">Setting up the workspace</h3>
+<p>Get this repository in a catkin workspace. The suggested location is <code>~/catkin_ws/src/</code>, but any valid catkin worskspace source folder will work. We suggest forking over and cloning as you will be working with the code.</p>
+<h4 id="additional-requirements">Additional requirements</h4>
+<p>The following ROS packages might need to be installed.</p>
+<pre><code>effort_controllers
+joint_state_publisher
+joint_state_controller
+ackermann_msgs
+gazebo_ros_pkgs
+gazebo_ros_control</code></pre>
+<p>The above ROS packages can be installed with the below command</p>
+<pre><code>sudo apt-get install ros-&lt;ros_distro_name&gt;-&lt;package_name with &#39;_&#39; replaced with &#39;-&#39;&gt;</code></pre>
+<p>In case any other ROS packages are missing use the above command to install it.</p>
+<h3 id="compilation-and-running">Compilation and Running</h3>
+<pre><code>cd ~/catkin_ws
+catkin_make</code></pre>
+<p><em>Note:</em> If you are unfamiliar with catkin, please know that you must run <code>source ~/catkin_ws/devel/setup.sh</code> before ROS will be able to locate the ocrl packages. This line can be added to your <code>~/.bashrc</code> file so that it is automatically run on opening a terminal.</p>
+<h3 id="testing-the-simulation-and-visualization">Testing the Simulation and Visualization</h3>
+<p>Run the following launch file to invoke the simulator, visualization and ordered set of waypoints to navigate to in the shortest time. Running this launch file will be first step of the planner you are going to develop</p>
+<pre><code>roslaunch ocrl ocrl.launch</code></pre>
+<p>Running the above command should open the following RViz window with a set of randomly chosen waypoints <img src="ocrl/img/env_angled.png" /> The numbered red arrows are the waypoints in order to be reached by the robot. The green boundary denotes the limits of X (from -10 to 10 in meters) and Y axis (from -10 to 10 in meters) from which a waypoint might be chosen, the robot can go out of this boundary to reach a waypoint. The blue boundary is the harder boundary beyond which the robot is expected to not go.</p>
+<p><em>Note:</em> The Gazebo is running in the non-gui mode (only gzserver is running). Enable the <code>gui</code> flag for <code>gazebo_ros</code> node in <code>ackermann_vehicle_gazebo/launch/ackermann_vehicle.launch</code> to open Gazebo gui. Functionally, this will only slow down your graphics.</p>
+<p>Once the environment is ready, you can launch your planner. As an example, we have provided a pure pursuit planner/controller (below command) that drives to the set of ordered waypoints.</p>
+<pre><code>rosrun ocrl pure_pursuit.py</code></pre>
+<p>As you can see, <code>pure pursuit</code> is an extremely simple and naive mechanism that drives the car with a constant velocity of 1m/s, does not satisfy the heading constraint at the waypoints (you guys should satisfy heading constraint too) and does not perform any reverse manuever.</p>
+<p>Also note that the behavior is very reactive and it does a pretty bad job in reaching all those waypoints. <strong>You guys should be able to design a planner that does much better than this!!!</strong></p>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li><code>ocrl/scripts/waypoint_publisher.py</code> generates 10 random waypoints within the boundary and publishes to the topic <code>/ackermann_vehicle/waypoints</code> of type <code>geometry_msgs/PoseArray</code>.</li>
+<li><code>ocrl/scripts/viz.py</code> is a RViz plugin to visualize the XY boundaries and the waypoints.</li>
+<li><code>ocrl/scripts/tf_broadcaster.py</code> is TF broadcaster to synchronize Gazebo and RViz</li>
+<li><code>ocrl/scripts/pure_pursuit.py</code> is a example dummy planner to get an idea</li>
+<li><code>ackermann_vehicle_gazebo/nodes/ackermann_controller.py</code> is the Ackermann controller node that performs low level control and convert the command coming from your planner to drive the wheels of Ackermann steering. <strong>You will essentially be integrating your planner with this node by publishing Ackermann commands to <code>/ackermann_vehicle/ackermann_cmd</code> topic of type <code>ackermann_msgs/AckermannDriveStamped</code> </strong></li>
+</ul>
+<h3 id="question">Question</h3>
+<p>Generate a local policy that drives an Ackermann system to a sequence of waypoints <code>(x, y, theta)</code> in the shortest time possible while respecting the dynamics (non-holonomic) and control saturation (velocity, acceleration and steering angle limits).</p>
+<p>Our robot can be modeled with bicycle dynamics. The two control signals are the steering wheel angle and the linear acceleration with respect to the base link. A few parameters you might need for designing the planner are listed below</p>
+<h4 id="parameters">Parameters</h4>
+<ul>
+<li>Wheelbase = 0.335m</li>
+<li>Min turning radius = 0.67m</li>
+<li>Max steering angle = 30 deg</li>
+<li>Max velocity = 10m/s</li>
+<li>Max acceleration = 4m/s^2</li>
+<li>Max deceleration = -4m/s^2</li>
+<li>Max waypoints = 10</li>
+<li>Waypoint tol = 0.2m</li>
+<li>Waypoint ang tol = 5 deg</li>
+</ul>
+<p><code>Wheelbase</code> is the distance between the centers of the front and rear wheels. <code>Min turning radius</code> is calculated using the wheelbase and the maximum turn angle of the front wheel (or the <code>max steering angle</code>). <code>Waypoint tol</code> is the radius around a waypoint into which the vehicle should enter with a heading error of +/-<code>Waypoint ang tol</code> to be considered as reaching a waypoint.</p>
+<h4 id="integration">Integration</h4>
+<ul>
+<li>Subscribe to the list of waypoints from the topic <code>/ackermann_vehicle/waypoints</code> of type <code>geometry_msgs/PoseArray</code>. You can check <code>ocrl/scripts/pure_pursuit.py</code> for an example of subscribing to the waypoints</li>
+<li>Publish your trajectory in the form of Ackermann command to <code>/ackermann_vehicle/ackermann_cmd</code> topic of type <code>ackermann_msgs/AckermannDriveStamped</code>.
+<ul>
+<li>For visualization, you can control the car using the velocity with respect to the base link and the steerimg angle. This means you just have to publish the <code>drive.speed</code> and <code>drive.steering_angle</code> fields of <code>/ackermann_vehicle/waypoints</code> topic to visualize the robot. Note that you might be planning in the space of control inputs (acceleration with respect to the base link) and you need to convert that to velocity for visualization.</li>
+</ul></li>
+</ul>
+<h3 id="what-to-turn-in">What to turn in?</h3>
+<p>You can use C++/Python/Matlab for this assignment. You will have to stick to the API conventions provided in the <strong>Integration</strong> section. If you prefer to use a different API, then make sure you bundle them all up to a single launch file and provide instructions so that I can test it seamlessly. You can work in groups of size upto 5 (please prefer working in groups and make sure to have at least one person per team with a working knowledge of ROS).</p>
+<p>Submit a writeup explaining your method both technically and at a high-level that explains the reason for choosing any particular strategy. Include links to your source and any compiled code in either .zip, .tar, or .tar.gz format. The writeup is more important than the code. What did you do? Why did it work? What didn't work and why? Be sure to list the names of all the members of your group in the writeup.</p>
+<p>Please submit the writeup and code via Gradescope.</p>
+<p>Good Luck!</p>
+<h3 id="run-instructions-from-alex">Run instructions from Alex</h3>
+<p>In addition to running the launch file given by the instructors, also launch <code>tem.launch</code> in the launch/ directory (not sure if it will work outside). That will start the library and map server and such. The TEB planner published to <code>/cmd_vel</code> but that gets automatically converted into an Ackermann command, which should be run by the robot.</p>
+<p>The code that runs the planner and updates it with the appropriate waypoint is in <code>scripts/trajopt.py</code>. TODOS 1. adjust the resolution of map.yaml to our actual environment 1. Make sure the parameters in /cfg are consistent with our car 1. test the planner</p>
