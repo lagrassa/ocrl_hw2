@@ -90,18 +90,18 @@ def obj_func(x):
     yk = np.concatenate(([start_y],yk,[goal_y]))
     thetak = np.concatenate(([start_theta],thetak,[goal_theta]))
 
-
-    time_cost =  t_total
+    time_cost =  t_total**2
 
     # constant curvature path constraint
     path_cost = np.fabs(get_ceq(x))
     # vel, acc, radius limits
     ineq_cost = np.fabs(np.minimum(0,get_c(x)))
 
-    # discourage sharp turns
+    # discourage sharp turns (a bit hacky but wanted paths to be less jagged)
     dist = (thetak[1:] - thetak[:-1])**2
 
-
+    # teb paper said that path cost should be much larger than the rest
+    # but these weights/entire cost function could probably use some tuning
     cost = 100*time_cost + np.sum( 5000*path_cost) + 10*np.sum(ineq_cost)  + 100*np.sum(dist)
     return cost
 
@@ -194,6 +194,8 @@ def plan(s0,sf,v0,nc):
         thetak = np.concatenate(([start_theta], thetak, [goal_theta]))
         plt.plot(xk,yk,'b',xk[-1],yk[-1],'g*')
         plt.show()
+
+    # control frequency
     fc = nc/t_total
     # compute control inputs
     uc = compute_control_inputs(res.x)
