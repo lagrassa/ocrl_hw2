@@ -3,6 +3,8 @@ import scipy.optimize as opt
 import autograd.numpy as np
 from autograd import grad,jacobian
 from matplotlib import pyplot as plt
+global debug
+debug = False
 
 
 def split_state(x):
@@ -78,8 +80,6 @@ def get_ceq(x):
     # constant curvature (trapezoidal collocation, see teb paper)
     ceq = np.array([np.cos(thetak[0:-1]) + np.cos(thetak[1:]),np.sin(thetak[0:-1]) + np.sin(thetak[1:]),np.zeros(n+1)]).T
     ceq = np.fabs(np.cross(ceq,dk,axisa=1,axisb=1)[:,2])
-
-
     return ceq
 
 
@@ -102,12 +102,13 @@ def obj_func(x):
 
     # teb paper said that path cost should be much larger than the rest
     # but these weights/entire cost function could probably use some tuning
-    cost = 100*time_cost + np.sum( 5000*path_cost) + 10*np.sum(ineq_cost)  + 100*np.sum(dist)
+    cost = 0.001*time_cost + np.sum( 5000*path_cost) + 10*np.sum(ineq_cost)  + 100*np.sum(dist)
     return cost
 
 def get_bounds(nc):
+    max_time = 10
     bounds = np.zeros(((nc-1)*3 + 1,2))
-    bounds[0,:] = [1e-5*nc,2]
+    bounds[0,:] = [1e-5*nc,max_time]
     bounds[1:nc,:] = x_lim
     bounds[nc:2*nc,:] = y_lim
     bounds[2*nc:3*nc,:] = theta_lim
@@ -120,8 +121,9 @@ def compute_control_inputs(x):
     xk = np.concatenate(([start_x],xk,[goal_x]))
     yk = np.concatenate(([start_y],yk,[goal_y]))
     thetak = np.concatenate(([start_theta],thetak,[goal_theta]))
+    import ipdb; ipdb.set_trace()
 
-    dt = (n+1)/t_total
+    dt = t_total/(n+1)
     dx = xk[1:] - xk[0:-1]
     dy = yk[1:] - yk[0:-1]
     dk = np.array([dx,dy,np.zeros(n+1)]).T
@@ -135,7 +137,6 @@ def compute_control_inputs(x):
 
     # steering angle
     phi_k = np.arctan(wheelbase*dtheta/vk)
-
     u = np.array((vk,phi_k))
     return u
 
@@ -151,13 +152,14 @@ def plan(s0,sf,v0,nc):
     goal_theta = sf[2]
     sf_rs = np.copy(sf)
     sf_rs[2] *= 180.0/np.pi
+    time_traj = 5
 
     # Optimization is very sensitive to initialization
     # TODO: Fix when sign change from start to goal, causes weirdness with linspace
     init_x = np.linspace(s0[0],goal_x,nc+1)
     init_y = np.linspace(s0[1],goal_y,nc+1)
     init_theta = np.linspace(s0[2],goal_theta,nc+1)
-    x0 = np.concatenate(([1],init_x[1:-1],init_y[1:-1],init_theta[1:-1]))
+    x0 = np.concatenate(([time_traj],init_x[1:-1],init_y[1:-1],init_theta[1:-1]))
 
 
     ineq_constr = {'type': 'ineq',
@@ -178,6 +180,7 @@ def plan(s0,sf,v0,nc):
             return opt.approx_fprime(x0,obj_func,1e-6)
 
     # not sure which method words best. both kind of suck
+    import ipdb; ipdb.set_trace()
     res = opt.minimize(obj_func,x0,method='SLSQP',jac=jac_reg,constraints=[eq_constr,ineq_constr],options=options,bounds=bounds)
     #res = opt.least_squares(obj_func,x0,method="trf",ftol=1e-12,xtol=1e-15,jac=jac_reg,bounds = (bounds[:,0],bounds[:,1]),verbose=2)
 
@@ -193,12 +196,13 @@ def plan(s0,sf,v0,nc):
         yk = np.concatenate(([start_y], yk, [goal_y]))
         thetak = np.concatenate(([start_theta], thetak, [goal_theta]))
         plt.plot(xk,yk,'b',xk[-1],yk[-1],'g*')
-        plt.show()
+        #plt.show()
 
     # control frequency
     fc = nc/t_total
     # compute control inputs
     uc = compute_control_inputs(res.x)
+    print("end distance", np.linalg.norm(np.array([xk[-1], yk[-1], thetak[-1]])-sf))
     return fc,uc, np.array([xk,yk,thetak])
 
 

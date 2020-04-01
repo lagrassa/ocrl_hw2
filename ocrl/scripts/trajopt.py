@@ -46,10 +46,10 @@ def go_to_waypoint(waypoint):
   rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
   dx = waypoint[0] - rear_axle_center.position.x
   dy = waypoint[1] - rear_axle_center.position.y
-  heading = euler_from_quaternion(rear_axle_center.orientation)[2]
-  s0 = np.array([rear_axle_center.position.x, rear_axle_center.position.y, heading ])
-  nc = 20
+  s0 = np.array([rear_axle_center.position.x, rear_axle_center.position.y, rear_axle_theta])
+  nc = 50
   v0 = 0
+  sf = waypoint
   fc, us, states = plan(s0, sf, v0, nc)
   rate = rospy.Rate(fc)
   target_distance = math.sqrt(dx*dx + dy*dy)
@@ -58,8 +58,8 @@ def go_to_waypoint(waypoint):
     cmd =  AckermannDriveStamped()
     cmd.header.stamp = rospy.Time.now()
     cmd.header.frame_id = "base_link"
-    cmd.drive.steering_angle =us[i][1] 
-    cmd.drive.speed = us[i][0]
+    cmd.drive.steering_angle = us[1][i] 
+    cmd.drive.speed = us[0][i]
     cmd_pub.publish(cmd)
     rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
     dx = waypoint[0] - rear_axle_center.position.x
