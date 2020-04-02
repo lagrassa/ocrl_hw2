@@ -223,42 +223,49 @@ def plan(s0,sf,v0,fc):
     time_traj = 5
 
     dist = np.sqrt((goal_x - start_x)**2 + (goal_y - start_y)**2)
-    t0 = dist/(0.5*max_vel)
+
+    import dubins
+    path = dubins.shortest_path(s0,sf,min_turning_radius)
+    dist = path.path_length()
+    t0 = dist/(0.9*max_vel)
     nc = int(t0/tc)
-
+    points = path.sample_many(dist/nc)[0]
+    init_x = np.array(points)[:,0]
+    init_y = np.array(points)[:,1]
+    init_theta = np.array(points)[:,2]
     # set parameters:
-    pos1 = State(_x=start_x, _y=start_y, _theta=start_theta, _kappa=0)
-    pos2 = State(_x=goal_x, _y=goal_y, _theta=goal_theta, _kappa=0)
-    tparam = TurnParams(_kappa_max=1/min_turning_radius,
-                        _sigma_max=min(1,dist/min_turning_radius))
-
-    PATHOPTIONS = [PathType.lsl, PathType.rsr, PathType.rsl, PathType.lsr]
-    path = SccPathVariant(tparam, pos1, pos2, PathType.rsl)
-    paths = []
-    valid = True
-    for variant in PATHOPTIONS:
-        paths.append(SccPathVariant(tparam, pos1, pos2, variant))
-        if not paths[-1].valid:
-            not_valid = False
-            break
-
-    if valid:
-        shortest_path = min(paths, key=lambda path: path.len)
-
-        # calculate positions:
-        X = np.linspace(0, shortest_path.len, nc+1, endpoint=True)
-        tra = shortest_path.state(X)
-        # Optimization is very sensitive to initialization
-        init_x = tra.x
-        init_y = tra.y
-        tra.theta[tra.theta > np.pi] = tra.theta[tra.theta > np.pi]  - 2*np.pi
-        init_theta = tra.theta
-    else:
-        print("WARNING: initial curved path was invalid. using linear path for initialization instead.")
-
-        init_x = np.linspace(start_x,goal_x,nc+1)
-        init_y = np.linspace(start_y,goal_y,nc+1)
-        init_theta = np.linspace(start_theta,goal_theta,nc+1)
+    # pos1 = State(_x=start_x, _y=start_y, _theta=start_theta, _kappa=0)
+    # pos2 = State(_x=goal_x, _y=goal_y, _theta=goal_theta, _kappa=0)
+    # tparam = TurnParams(_kappa_max=1/min_turning_radius,
+    #                     _sigma_max=min(1,dist/min_turning_radius))
+    #
+    # PATHOPTIONS = [PathType.lsl, PathType.rsr, PathType.rsl, PathType.lsr]
+    # path = SccPathVariant(tparam, pos1, pos2, PathType.rsl)
+    # paths = []
+    # valid = True
+    # for variant in PATHOPTIONS:
+    #     paths.append(SccPathVariant(tparam, pos1, pos2, variant))
+    #     if not paths[-1].valid:
+    #         not_valid = False
+    #         break
+    #
+    # if valid:
+    #     shortest_path = min(paths, key=lambda path: path.len)
+    #
+    #     # calculate positions:
+    #     X = np.linspace(0, shortest_path.len, nc+1, endpoint=True)
+    #     tra = shortest_path.state(X)
+    #     # Optimization is very sensitive to initialization
+    #     init_x = tra.x
+    #     init_y = tra.y
+    #     tra.theta[tra.theta > np.pi] = tra.theta[tra.theta > np.pi]  - 2*np.pi
+    #     init_theta = tra.theta
+    # else:
+    #     print("WARNING: initial curved path was invalid. using linear path for initialization instead.")
+    #
+    #     init_x = np.linspace(start_x,goal_x,nc+1)
+    #     init_y = np.linspace(start_y,goal_y,nc+1)
+    #     init_theta = np.linspace(start_theta,goal_theta,nc+1)
 
     plt.plot(init_x,init_y)
 
