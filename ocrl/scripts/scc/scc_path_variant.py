@@ -60,9 +60,9 @@ class SccPathVariant(object):
         self.st2 = st2
         self.params = params
         self.ptype = ptype
-        outer_rad = self.params.outer_rad
+        self.valid = self.om12_dist >= 2 * self.params.outer_rad
 
-        assert (self.om12_dist >= 2 * outer_rad)
+
 
 
     @cached_property

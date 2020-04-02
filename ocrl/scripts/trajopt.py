@@ -29,6 +29,7 @@ def vehicleStateCallback(msg):
   rear_axle_velocity.linear = msg.twist.twist.linear
   rear_axle_velocity.angular = msg.twist.twist.angular
 
+
 def go_to_waypoint(waypoint):
   print waypoint
   print("setting new goal")
@@ -43,37 +44,45 @@ def go_to_waypoint(waypoint):
   nav_goal_pub.publish(navigation_msg)
 
   global rear_axle_center, rear_axle_theta, rear_axle_velocity, cmd_pub
-  rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
+  rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 1)
   dx = waypoint[0] - rear_axle_center.position.x
   dy = waypoint[1] - rear_axle_center.position.y
   s0 = np.array([rear_axle_center.position.x, rear_axle_center.position.y, rear_axle_theta])
-  nc = 50
+  fc = 30
   v0 = 0
   sf = waypoint
-  fc, us, states = plan(s0, sf, v0, nc)
+  us, states = plan(s0, sf, v0, fc)
   rate = rospy.Rate(fc)
   target_distance = math.sqrt(dx*dx + dy*dy)
   i = 0
   while target_distance > waypoint_tol and i < us.shape[1] :
+    this_vel = np.clip(us[0][i],-max_vel,max_vel)
+    # this_acc = (this_vel - rear_axle_velocity.linear.x)/(1.0/fc)
+    this_ang = np.clip(us[1][i], -max_steering_angle, max_steering_angle)
+    # if (this_acc > 0) and (this_acc > max_acc):
+    #   this_vel = rear_axle_velocity.linear.x + max_acc*(1.0/fc)
+    # elif (this_acc < 0) and (this_acc < max_dec):
+    #   this_vel = rear_axle_velocity.linear.x + max_dec*(1.0/fc)
+
     cmd =  AckermannDriveStamped()
     cmd.header.stamp = rospy.Time.now()
     cmd.header.frame_id = "base_link"
-    cmd.drive.steering_angle = np.clip(us[1][i],-max_steering_angle,max_steering_angle)
-    cmd.drive.speed = np.clip(us[0][i],-max_vel,max_vel)
+    cmd.drive.steering_angle = this_ang
+    cmd.drive.speed = this_vel
     # print(cmd)
     cmd_pub.publish(cmd)
-    rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
+    # rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 1)
     dx = waypoint[0] - rear_axle_center.position.x
     dy = waypoint[1] - rear_axle_center.position.y
     target_distance = math.sqrt(dx * dx + dy * dy)
     i+=1 
     rate.sleep() 
-  cmd =  AckermannDriveStamped()
-  cmd.header.stamp = rospy.Time.now()
-  cmd.header.frame_id = "base_link"
-  cmd.drive.steering_angle = 0
-  cmd.drive.speed = 0
-  cmd_pub.publish(cmd)
+  # cmd =  AckermannDriveStamped()
+  # cmd.header.stamp = rospy.Time.now()
+  # cmd.header.frame_id = "base_link"
+  # cmd.drive.steering_angle = 0
+  # cmd.drive.speed = 0
+  # cmd_pub.publish(cmd)
 
 if __name__ == '__main__':
 
@@ -92,7 +101,7 @@ if __name__ == '__main__':
   rear_axle_velocity = Twist()
   rospy.Subscriber("/ackermann_vehicle/ground_truth/state",
                    Odometry, vehicleStateCallback)
-  rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
+  rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 1)
 
   for w in waypoints:
     go_to_waypoint(w)
