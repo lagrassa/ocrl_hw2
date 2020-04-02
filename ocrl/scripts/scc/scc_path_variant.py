@@ -59,13 +59,10 @@ class SccPathVariant(object):
         self.st1 = st1
         self.st2 = st2
         self.params = params
-        self.ptype = ptype
-
         outer_rad = self.params.outer_rad
 
-        # while(self.om12_dist < 2 * outer_rad):
-        #     self.params = TurnParams(_kappa_max=self.params.kappa_max*(1/.9) ,_sigma_max=1)
-        #     outer_rad = self.params.outer_rad
+        assert (self.om12_dist >= 2 * outer_rad)
+
 
     @cached_property
     def _om1l(self):

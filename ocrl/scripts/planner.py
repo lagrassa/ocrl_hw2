@@ -3,6 +3,8 @@ import scipy.optimize as opt
 import autograd.numpy as np
 from autograd import grad,jacobian
 from matplotlib import pyplot as plt
+global debug
+debug = False
 
 # from https://github.com/gerdl/scc_paths
 from scc.turn import Turn
@@ -59,7 +61,7 @@ def get_c(x):
     wk = dtheta/dt
     c_w = max_ang_vel - np.fabs(wk)
 
-    vk = np.concatenate(([start_vel],vk))
+    vk = np.concatenate(([start_vel],vk,[0]))
     # acceleration (finite differences)
     ak = (vk[1:] - vk[0:-1])/dt
 
@@ -84,8 +86,6 @@ def get_ceq(x):
     # constant curvature (trapezoidal collocation, see teb paper)
     ceq = np.array([np.cos(thetak[0:-1]) + np.cos(thetak[1:]),np.sin(thetak[0:-1]) + np.sin(thetak[1:]),np.zeros(n+1)]).T
     ceq = np.fabs(np.cross(ceq,dk,axisa=1,axisb=1)[:,2])
-
-
     return ceq
 
 
@@ -108,13 +108,18 @@ def obj_func(x):
 
     # teb paper said that path cost should be much larger than the rest
     # but these weights/entire cost function could probably use some tuning
-    cost = time_cost + np.sum(50*path_cost) + np.sum(ineq_cost)  + np.sum(dist)
+    cost = .1*time_cost + np.sum(50*path_cost) + np.sum(ineq_cost)  + np.sum(dist)
+
+
+    # cost = 0.001*time_cost + np.sum( 5000*path_cost) + 10*np.sum(ineq_cost)  + 100*np.sum(dist)
 
     return cost
 
 def get_bounds(nc):
+    max_time = 20
     bounds = np.zeros(((nc-1)*3 + 1,2))
-    bounds[0,:] = [1e-5*nc,10]
+
+    bounds[0,:] = [1e-5*nc,max_time]
     bounds[1:nc,:] = x_lim
     bounds[nc:2*nc,:] = y_lim
     bounds[2*nc:3*nc,:] = theta_lim
@@ -127,12 +132,13 @@ def compute_control_inputs(x):
     xk = np.concatenate(([start_x],xk,[goal_x]))
     yk = np.concatenate(([start_y],yk,[goal_y]))
     thetak = np.concatenate(([start_theta],thetak,[goal_theta]))
+    # import ipdb; ipdb.set_trace()
 
-    dt = (n+1)/t_total
+    dt = t_total/(n+1)
     dx = xk[1:] - xk[0:-1]
     dy = yk[1:] - yk[0:-1]
     dk = np.array([dx,dy,np.zeros(n+1)]).T
-    dtheta =  thetak[1:] - thetak[0:-1]
+    dtheta =  (thetak[1:] - thetak[0:-1])/dt
 
     # vel
     qk = np.array([np.cos(thetak[:-1]),np.sin(thetak[:-1]),np.zeros(n+1)]).T
@@ -141,8 +147,9 @@ def compute_control_inputs(x):
     vk = np.linalg.norm(dk,axis=1)*sign_v/dt
 
     # steering angle
-    phi_k = np.arctan(wheelbase*dtheta/vk)
-
+    phi_k = np.zeros(vk.shape)
+    mask = np.absolute(vk) > 1e-5
+    phi_k[mask] = np.arctan(wheelbase*dtheta[mask]/vk[mask])
     u = np.array((vk,phi_k))
     return u
 
@@ -156,6 +163,8 @@ def plan(s0,sf,v0,nc):
     goal_x = sf[0]
     goal_y = sf[1]
     goal_theta = sf[2]
+
+    time_traj = 5
 
     dist = np.sqrt((goal_x - start_x)**2 + (goal_y - start_y)**2)
     # set parameters:
@@ -180,7 +189,8 @@ def plan(s0,sf,v0,nc):
     plt.plot(init_x,init_y)
 
     t0 = dist/max_vel
-    x0 = np.concatenate(([t0*2],init_x[1:-1],init_y[1:-1],init_theta[1:-1]))
+    x0 = np.concatenate(([min(9,t0)],init_x[1:-1],init_y[1:-1],init_theta[1:-1]))
+
 
 
     ineq_constr = {'type': 'ineq',
@@ -201,6 +211,7 @@ def plan(s0,sf,v0,nc):
             return opt.approx_fprime(x0,obj_func,1e-6)
 
     # not sure which method words best. both kind of suck
+    # import ipdb; ipdb.set_trace()
     res = opt.minimize(obj_func,x0,method='SLSQP',jac=jac_reg,constraints=[eq_constr,ineq_constr],options=options,bounds=bounds)
     #res = opt.least_squares(obj_func,x0,method="trf",ftol=1e-12,xtol=1e-15,jac=jac_reg,bounds = (bounds[:,0],bounds[:,1]),verbose=2)
 
@@ -208,7 +219,7 @@ def plan(s0,sf,v0,nc):
     t_total, xk, yk, thetak = split_state(res.x)
 
 
-    if debug:
+    if True:
 
         print("goal:" + str(sf[0])+ " " + str(sf[1])+ " " + str(sf[2]))
         print("res:" + str(xk[-1])+ " " + str(yk[-1])+ " " + str(thetak[-1]))
@@ -222,16 +233,19 @@ def plan(s0,sf,v0,nc):
     fc = nc/t_total
     # compute control inputs
     uc = compute_control_inputs(res.x)
-    ax = plt.subplot(1,1,1)
-    ax.plot(uc[0],uc[1])
-    plt.show()
+    if debug:
+        ax = plt.subplot(1,1,1)
+        ax.plot(uc[0],uc[1])
+        plt.show()
+
+    print("end distance", np.linalg.norm(np.array([xk[-1], yk[-1], thetak[-1]])-sf))
     return fc,uc, np.array([xk,yk,thetak])
 
 
 # Test Script
 if __name__ == '__main__':
     global debug
-    debug = True
+    debug = False
     # Generate random waypoints
     waypoints = np.random.rand(num_waypoints, 3)
     waypoints[:, 0] = (x_lim[1] - x_lim[0]) * waypoints[:, 0] + x_lim[0]

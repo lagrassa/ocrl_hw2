@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseArray, Pose, Twist, PoseStamped
 from ackermann_msgs.msg import AckermannDriveStamped
 from angles import *
+from planner import plan
 
 import tf
 
@@ -45,18 +46,34 @@ def go_to_waypoint(waypoint):
   rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
   dx = waypoint[0] - rear_axle_center.position.x
   dy = waypoint[1] - rear_axle_center.position.y
+  s0 = np.array([rear_axle_center.position.x, rear_axle_center.position.y, rear_axle_theta])
+  nc = 50
+  v0 = 0
+  sf = waypoint
+  fc, us, states = plan(s0, sf, v0, nc)
+  rate = rospy.Rate(fc)
   target_distance = math.sqrt(dx*dx + dy*dy)
-  while target_distance > waypoint_tol:
-    #current plan from the planner
-    cmd =  rospy.wait_for_message( "/ackermann_cmd", AckermannDriveStamped,4)
+  i = 0
+  while target_distance > waypoint_tol and i < us.shape[1] :
+    cmd =  AckermannDriveStamped()
     cmd.header.stamp = rospy.Time.now()
     cmd.header.frame_id = "base_link"
+    cmd.drive.steering_angle = np.clip(us[1][i],-max_steering_angle,max_steering_angle)
+    cmd.drive.speed = np.clip(us[0][i],-max_vel,max_vel)
+    # print(cmd)
     cmd_pub.publish(cmd)
     rospy.wait_for_message("/ackermann_vehicle/ground_truth/state", Odometry, 5)
     dx = waypoint[0] - rear_axle_center.position.x
     dy = waypoint[1] - rear_axle_center.position.y
     target_distance = math.sqrt(dx * dx + dy * dy)
-
+    i+=1 
+    rate.sleep() 
+  cmd =  AckermannDriveStamped()
+  cmd.header.stamp = rospy.Time.now()
+  cmd.header.frame_id = "base_link"
+  cmd.drive.steering_angle = 0
+  cmd.drive.speed = 0
+  cmd_pub.publish(cmd)
 
 if __name__ == '__main__':
 
