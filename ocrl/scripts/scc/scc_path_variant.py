@@ -59,6 +59,7 @@ class SccPathVariant(object):
         self.st1 = st1
         self.st2 = st2
         self.params = params
+        self.ptype = ptype
         outer_rad = self.params.outer_rad
 
         assert (self.om12_dist >= 2 * outer_rad)
